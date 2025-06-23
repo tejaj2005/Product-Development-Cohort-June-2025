@@ -3,16 +3,17 @@ import React, { createContext, useContext, useState, useEffect, ReactNode } from
 export type UserType = 'student' | 'staff' | 'outsider' | 'admin';
 
 export interface User {
-  id: string;
+  _id: string;
   name: string;
   email: string;
   userType: UserType;
-  profileImage?: string;
+  profile_pic?: string;
 }
 
 interface AuthContextType {
   user: User | null;
   login: (email: string, password: string) => Promise<boolean>;
+  loginWithGoogle: (user: User) => void;
   signup: (name: string, email: string, password: string, userType: UserType) => Promise<boolean>;
   logout: () => void;
   isAuthenticated: boolean;
@@ -46,7 +47,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     // Mock authentication logic
     if (email && password) {
       const mockUser: User = {
-        id: '1',
+        _id: '1',
         name: email.includes('admin') ? 'Admin User' : 'John Doe',
         email,
         userType: email.includes('admin') ? 'admin' : 'student',
@@ -59,23 +60,36 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     return false;
   };
 
+  const loginWithGoogle = (user: User) => {
+    setUser(user);
+    localStorage.setItem('mlrit_user', JSON.stringify(user));
+  };
+
   const signup = async (name: string, email: string, password: string, userType: UserType): Promise<boolean> => {
-    // Simulate API call
-    await new Promise(resolve => setTimeout(resolve, 1000));
-    
-    if (name && email && password) {
-      const newUser: User = {
-        id: Date.now().toString(),
-        name,
-        email,
-        userType,
-      };
+    try {
+      const res = await fetch('http://localhost:3001/api/auth/signup', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ name, email, password, userType }),
+      });
+
+      if (res.ok) {
+        const { user: newUser } = await res.json();
+        setUser(newUser);
+        localStorage.setItem('mlrit_user', JSON.stringify(newUser));
+        return true;
+      }
       
-      setUser(newUser);
-      localStorage.setItem('mlrit_user', JSON.stringify(newUser));
-      return true;
+      // You can add more specific error handling here based on response status
+      console.error('Signup failed:', await res.text());
+      return false;
+
+    } catch (error) {
+      console.error('Error during signup API call:', error);
+      return false;
     }
-    return false;
   };
 
   const logout = () => {
@@ -87,6 +101,7 @@ export const AuthProvider: React.FC<{ children: ReactNode }> = ({ children }) =>
     <AuthContext.Provider value={{
       user,
       login,
+      loginWithGoogle,
       signup,
       logout,
       isAuthenticated: !!user,

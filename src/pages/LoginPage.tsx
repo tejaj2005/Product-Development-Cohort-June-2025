@@ -1,84 +1,53 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { Link, useNavigate } from 'react-router-dom';
-import { Eye, EyeOff, Mail, Lock } from 'lucide-react';
+import { GoogleLogin, CredentialResponse } from '@react-oauth/google';
 import { useAuth } from '../contexts/AuthContext';
 import { useNotification } from '../contexts/NotificationContext';
-import Button from '../components/ui/Button';
-import Input from '../components/ui/Input';
 import Card from '../components/ui/Card';
 
 const LoginPage: React.FC = () => {
-  const [formData, setFormData] = useState({
-    email: '',
-    password: '',
-  });
-  const [showPassword, setShowPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState<Record<string, string>>({});
-
-  const { login } = useAuth();
   const { addNotification } = useNotification();
   const navigate = useNavigate();
+  const { loginWithGoogle } = useAuth();
 
-  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    const { name, value } = e.target;
-    setFormData(prev => ({ ...prev, [name]: value }));
-    if (errors[name]) {
-      setErrors(prev => ({ ...prev, [name]: '' }));
-    }
-  };
-
-  const validateForm = () => {
-    const newErrors: Record<string, string> = {};
-
-    if (!formData.email) {
-      newErrors.email = 'Email is required';
-    } else if (!/\S+@\S+\.\S+/.test(formData.email)) {
-      newErrors.email = 'Please enter a valid email';
-    }
-
-    if (!formData.password) {
-      newErrors.password = 'Password is required';
-    } else if (formData.password.length < 6) {
-      newErrors.password = 'Password must be at least 6 characters';
-    }
-
-    setErrors(newErrors);
-    return Object.keys(newErrors).length === 0;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!validateForm()) return;
-
-    setLoading(true);
+  const handleSuccess = async (credentialResponse: CredentialResponse) => {
     try {
-      const success = await login(formData.email, formData.password);
-      
-      if (success) {
+      const res = await fetch('http://localhost:3001/api/auth/google/callback', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        // Send the ID token to the backend
+        body: JSON.stringify({ token: credentialResponse.credential }),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        loginWithGoogle(data.user);
         addNotification({
           type: 'success',
-          title: 'Welcome back!',
-          message: 'You have been logged in successfully.',
+          title: 'Welcome!',
+          message: 'You have been logged in successfully with Google.',
         });
         navigate('/courts');
       } else {
-        addNotification({
-          type: 'error',
-          title: 'Login failed',
-          message: 'Invalid email or password. Please try again.',
-        });
+        throw new Error('Failed to verify token with backend');
       }
     } catch (error) {
       addNotification({
         type: 'error',
         title: 'Login error',
-        message: 'Something went wrong. Please try again.',
+        message: 'Something went wrong during Google Sign-In. Please try again.',
       });
-    } finally {
-      setLoading(false);
     }
+  };
+
+  const handleError = () => {
+    addNotification({
+      type: 'error',
+      title: 'Login failed',
+      message: 'Could not sign in with Google. Please try again.',
+    });
   };
 
   return (
@@ -90,51 +59,12 @@ const LoginPage: React.FC = () => {
         </div>
 
         <Card className="p-8">
-          <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="relative">
-              <Input
-                label="Email address"
-                name="email"
-                type="email"
-                value={formData.email}
-                onChange={handleChange}
-                error={errors.email}
-                placeholder="Enter your email"
-                className="pl-10"
-              />
-              <Mail className="absolute left-3 top-9 w-4 h-4 text-gray-400" />
-            </div>
-
-            <div className="relative">
-              <Input
-                label="Password"
-                name="password"
-                type={showPassword ? 'text' : 'password'}
-                value={formData.password}
-                onChange={handleChange}
-                error={errors.password}
-                placeholder="Enter your password"
-                className="pl-10 pr-10"
-              />
-              <Lock className="absolute left-3 top-9 w-4 h-4 text-gray-400" />
-              <button
-                type="button"
-                onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-9 text-gray-400 hover:text-gray-600 transition-colors"
-              >
-                {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-              </button>
-            </div>
-
-            <Button
-              type="submit"
-              loading={loading}
-              className="w-full"
-              size="lg"
-            >
-              Sign In
-            </Button>
-
+          <div className="flex flex-col items-center space-y-6">
+            <GoogleLogin
+              onSuccess={handleSuccess}
+              onError={handleError}
+              useOneTap
+            />
             <div className="text-center">
               <p className="text-sm text-gray-600">
                 Don't have an account?{' '}
@@ -143,15 +73,6 @@ const LoginPage: React.FC = () => {
                 </Link>
               </p>
             </div>
-          </form>
-
-          {/* Demo Credentials */}
-          <div className="mt-6 p-4 bg-gray-50 rounded-lg">
-            <p className="text-xs text-gray-500 mb-2">Demo credentials:</p>
-            <div className="space-y-1 text-xs">
-              <p><span className="font-medium">Student:</span> student@mlrit.ac.in / password</p>
-              <p><span className="font-medium">Admin:</span> admin@mlrit.ac.in / password</p>
-            </div>
           </div>
         </Card>
       </div>
@@ -159,4 +80,4 @@ const LoginPage: React.FC = () => {
   );
 };
 
-export default LoginPage;
+export default LoginPage; 
