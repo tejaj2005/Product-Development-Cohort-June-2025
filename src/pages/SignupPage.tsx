@@ -95,7 +95,7 @@ const SignupPage: React.FC = () => {
         addNotification({
           type: 'error',
           title: 'Signup failed',
-          message: 'Unable to create account. Please try again.',
+          message: 'An account with this email may already exist. Please try again.',
         });
       }
     } catch (error) {

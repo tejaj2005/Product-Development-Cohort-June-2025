@@ -1,4 +1,4 @@
-const mongoose = require("mongoose");
+import mongoose from "mongoose";
 
 const courtSchema = new mongoose.Schema({
   name: {
@@ -29,4 +29,6 @@ const courtSchema = new mongoose.Schema({
   },
 });
 
-module.exports = mongoose.model("Court", courtSchema);
+const Court = mongoose.model("Court", courtSchema);
+
+export default Court;
